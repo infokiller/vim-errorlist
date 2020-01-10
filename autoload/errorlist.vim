@@ -38,25 +38,32 @@ function! errorlist#PosCompare(lhs, rhs) abort
   elseif a:lhs.lnum > a:rhs.lnum
     return 1
   endif
-  " I'm using crewind/lrewind to navigate to specific error items, which mimics
-  " typing enter when an item is highlighted in the list. After the navigation
-  " command, the cursor won't alway move to the column specified in the error
-  " item. Specifically, when the column in the error item is set to a value
-  " smaller than the column of the first non-blank char on the line, the cursor
-  " will move to the first non-blank char on the line.
-  " Also note that an item can have its column unset or set to 0.
+  " We're using crewind/lrewind to navigate to specific error items, which
+  " mimics typing enter when an item is highlighted in the list. After the
+  " navigation command, the cursor won't alway move to the column specified in
+  " the error item. Specific issues:
+  " 1. When the column in the error item is set to a value smaller than the
+  "    column of the first non-blank char on the line, the cursor will move to
+  "    the first non-blank char on the line.
+  " 2. When the column in the error item is set to a value larger than the
+  "    last column of the line, the cursor will move to the last column on the
+  "    line. One way this can happen is if a part of a line was deleted after
+  "    the error list was generated, making the error list stale.
+  " 3. An item can have its column unset or set to 0.
   " Because of this behavior, we consider all items on a line as having a column
-  " that is at a minimum the column of the first non-blank char on that line.
-  " Otherwise the cursor can get stuck when navigating to the previous error
-  " item.
+  " that is at a minimum the column of the first non-blank char on that line,
+  " and at a maximum the number of (unicode) characters in the line.
+  " Otherwise the cursor can get stuck when navigating to the previous/next
+  " error item.
   let l:line = get(getbufline(a:lhs.bufnr, a:lhs.lnum), 0, '')
-  let l:min_col = match(l:line, '\m\C\S')
-  " If the line is empty, match will return -1.
-  let l:min_col = max([l:min_col, 0])
-  " Convert from the 0-based indexing of strings to the 1-based indexing of columns.
-  let l:min_col += 1
-  let l:lhs_col = max([a:lhs.col, l:min_col])
-  let l:rhs_col = max([a:rhs.col, l:min_col])
+  if empty(l:line)
+    return 0
+  endif
+  breakadd here
+  let l:min_col = match(l:line, '\m\C\S') + 1
+  let l:max_col = len(split(l:line, '\M\zs'))
+  let l:lhs_col = min([max([a:lhs.col, l:min_col]), l:max_col])
+  let l:rhs_col = min([max([a:rhs.col, l:min_col]), l:max_col])
   if l:lhs_col < l:rhs_col
     return -1
   elseif l:lhs_col > l:rhs_col

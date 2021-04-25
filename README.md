@@ -45,9 +45,9 @@ let g:error_list_post_command = 'normal! zz'
 
 #### Max items
 
-By default, the plugin will fall back to vim's built in navigation commands (`:cn` etc.) if the number of items is more than 10,000. The reason for this is that navigating relative to the cursor can become slow with a large number of items.
+By default, the plugin will fall back to vim's built in navigation commands (`:cn` etc.) if the number of items is more than 2,000. The reason for this is that navigating relative to the cursor can become slow with a large number of items.
 To change the maximum number of items:
 
 ```vim
-let g:error_list_max_items = 10000
+let g:error_list_max_items = 2000
 ```

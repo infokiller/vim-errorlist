@@ -1,5 +1,5 @@
 let g:error_list_post_command = get(g:, 'error_list_post_command', '')
-let g:error_list_max_items = get(g:, 'error_list_max_items', 10000)
+let g:error_list_max_items = get(g:, 'error_list_max_items', 2000)
 
 let g:error_list_debug = get(g:, 'error_list_debug', 0)
 let g:error_list_use_sort = 1
@@ -27,10 +27,12 @@ endfunction
 " -1 if the error is before the cursor
 " 0 if the error is in the same position as the cursor
 " +1 if the error is after the cursor
-function! errorlist#PosCompare(lhs, rhs) abort
-  if a:lhs.bufnr < a:rhs.bufnr
+function! errorlist#PosCompare(bufnr_to_rank, lhs, rhs) abort
+  let l:lhs_bufnr_rank = get(a:bufnr_to_rank, a:lhs.bufnr, 0)
+  let l:rhs_bufnr_rank = get(a:bufnr_to_rank, a:rhs.bufnr, 0)
+  if l:lhs_bufnr_rank < l:rhs_bufnr_rank
     return -1
-  elseif a:lhs.bufnr > a:rhs.bufnr
+  elseif l:lhs_bufnr_rank > l:rhs_bufnr_rank
     return 1
   endif
   if a:lhs.lnum < a:rhs.lnum
@@ -77,7 +79,13 @@ function! s:ErrorListGetNextItem(items, wrap, reverse) abort
     call assert_equal(len(s:cache), len(a:items))
     let l:sorted_items = s:cache
   else
-    let l:sorted_items = sort(a:items, 'errorlist#PosCompare')
+    " Use the order in the quickfix to set the rank of every bufnr which is used
+    " in sorting the items.
+    let l:bufnr_to_rank = {}
+    for l:item in a:items
+      let l:bufnr_to_rank[l:item.bufnr] = l:item.idx
+    endfor
+    let l:sorted_items = sort(a:items, function('errorlist#PosCompare', [l:bufnr_to_rank]))
     if len(a:items) <= g:error_list_max_cache_size
       let s:cache = l:sorted_items
     endif
@@ -87,7 +95,7 @@ function! s:ErrorListGetNextItem(items, wrap, reverse) abort
   let l:last_item = l:sorted_items[-1]
   let l:cmp = a:reverse ? '-1' : 1
   let l:next_items = filter(copy(l:sorted_items),
-      \ 'errorlist#PosCompare(v:val, l:cursor_pos) == l:cmp')
+      \ 'errorlist#PosCompare(l:bufnr_to_rank, v:val, l:cursor_pos) == l:cmp')
   if !empty(l:next_items)
     if a:reverse
       return l:next_items[-1]
